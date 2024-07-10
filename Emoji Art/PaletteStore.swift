@@ -1,26 +1,47 @@
 import Foundation
 
-// View Model #2
+extension UserDefaults {
+    func palettes(forKey key: String) -> [Palette] {
+        if let jsonData = data(forKey: key),
+           let decodedPalettes = try? JSONDecoder().decode([Palette].self, from: jsonData) {
+            return decodedPalettes
+        } else {
+            return []
+        }
+    }
+    
+    func set(_ palletes: [Palette], forKey key: String) {
+        let data = try? JSONEncoder().encode(palletes)
+        set(data, forKey: key)
+    }
+}
+
+// View Model #2 - for Palettes
 class PaletteStore: ObservableObject {
     
     let name: String
     
-    @Published var palettes: [Palette] {
-        didSet {
+    private var userDefaultsKey: String { "PaletteStore: " + name}
+    
+    var palettes: [Palette] {
+        get {
+            UserDefaults.standard.palettes(forKey: userDefaultsKey)
             
-            // can't delete the last palette
-            if palettes.isEmpty, !oldValue.isEmpty {
-                palettes = oldValue
+        }
+        set {
+            if !newValue.isEmpty {
+                UserDefaults.standard.set(newValue, forKey: userDefaultsKey)
+                // in this property, instead of @Published, we need to alert the view directly
+                objectWillChange.send()
             }
         }
     }
     
     init(named name: String) {
         self.name = name
-        self.palettes = Palette.builtins
         
         if palettes.isEmpty {
-            palettes = [Palette(name: "Warning", emojis: "⚠️")]
+            self.palettes = Palette.builtins
         }
     }
     
