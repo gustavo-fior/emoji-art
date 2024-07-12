@@ -16,10 +16,26 @@ extension UserDefaults {
     }
 }
 
+// you can extend protocols in extensions
+extension PaletteStore: Hashable {
+    // to conform to Equatable
+    static func == (lhs: PaletteStore, rhs: PaletteStore) -> Bool {
+        lhs.name == rhs.name
+    }
+    
+    // to conform to Hashable
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+    }
+}
+
 // View Model #2 - for Palettes
-class PaletteStore: ObservableObject {
+class PaletteStore: ObservableObject, Identifiable {
     
     let name: String
+    
+    // explicit setting an id because the name of the store is what matters to identify them (not the pointer to them, that would be used because this is a class)
+    var id : String { name }
     
     private var userDefaultsKey: String { "PaletteStore: " + name}
     
