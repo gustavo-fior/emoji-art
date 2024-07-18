@@ -7,6 +7,15 @@ class EmojiArtDocument: ObservableObject {
     @Published private var emojiArt = EmojiArt() {
         didSet {
             autosave()
+            
+            // if background changed
+            if (emojiArt.background != oldValue.background) {
+                
+                // throw task in another thread
+                Task {
+                    await fetchBackgroundImage()
+                }
+            }
         }
     }
     
@@ -34,7 +43,7 @@ class EmojiArtDocument: ObservableObject {
         
         // restoring the emoji art from the file system
         if let data = try? Data(contentsOf: autosaveURL),
-            let autosavedEmojiArt = try? EmojiArt(json: data) {
+           let autosavedEmojiArt = try? EmojiArt(json: data) {
             emojiArt = autosavedEmojiArt
         }
     }
@@ -43,8 +52,81 @@ class EmojiArtDocument: ObservableObject {
         emojiArt.emojis
     }
     
-    var background: URL? {
-        emojiArt.background
+    //    old implementation
+    //    var background: URL? {
+    //        emojiArt.background
+    //    }
+    
+    @Published var background: Background = .none
+    
+    // MARK: - Background Image
+    
+    @MainActor
+    private func fetchBackgroundImage() async  {
+        if let url = emojiArt.background {
+            background = .fetching(url)
+            do {
+                let image = try await fetchUIImageFromURL(from: url)
+                
+                // checking to make sure the user didn't choose another background in the meantime
+                if url == emojiArt.background {
+                    background = .found(image)
+                }
+                
+            } catch {
+                background = .failed("Couldn't set background: " + error.localizedDescription)
+            }
+            
+            
+        } else {
+            background = .none
+        }
+    }
+    
+    private func fetchUIImageFromURL(from url: URL) async throws -> UIImage {
+        
+        // get the data from a URL
+        let (data, _) = try await URLSession.shared.data(from: url)
+        
+        if let uiImage = UIImage(data: data) {
+            return uiImage;
+        } else {
+            throw FetchError.badImageData
+        }
+    }
+    
+    enum FetchError: Error {
+        case badImageData
+    }
+    
+    enum Background {
+        case none
+        case fetching(URL)
+        case found(UIImage)
+        case failed(String)
+        
+        var uiImage: UIImage? {
+            switch self {
+            case .found(let uiImage): return uiImage
+            default: return nil
+            }
+        }
+        
+        var urlBeingFetched: URL? {
+            switch self {
+            case .fetching(let url): return url
+            default: return nil
+            }
+        }
+        
+        var isFetching: Bool { urlBeingFetched != nil }
+        
+        var failureReason: String? {
+            switch self {
+            case .failed(let reason): return reason
+            default: return nil
+            }
+        }
     }
     
     // MARK: - Intents

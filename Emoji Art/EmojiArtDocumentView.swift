@@ -18,16 +18,22 @@ struct EmojiArtDocumentView: View {
         
     }
     
+    @State private var showBackgroundFailureAlert = false;
+    
     private var documentBody: some View {
         GeometryReader { geometry in
             ZStack {
                 // bg
                 Color.white
-            
+                
+                if document.background.isFetching {
+                    ProgressView()
+                        .position(Emoji.Position.zero.in(geometry))
+                }
                 documentContents(in: geometry)
-                    // zoom (* to animate it)
+                // zoom (* to animate it)
                     .scaleEffect(zoom * gestureZoom)
-                    // panning
+                // panning
                     .offset(pan + gesturePan)
             }
             // implementing the zoom and panning gestures (custom)
@@ -35,6 +41,44 @@ struct EmojiArtDocumentView: View {
             // can only have one type of drop destination per view, so we will create a Transferable that can take the URL of the image and the String of emoji
             .dropDestination(for: Sturldata.self) { sturldatas, location in
                 return drop(sturldatas, at: location, in: geometry)
+            }
+            .onChange(of: document.background.failureReason, { oldValue, newValue in
+                showBackgroundFailureAlert = (newValue != nil)
+            })
+            .onChange(of: document.background.uiImage, { oldValue, newValue in
+                zoomToFit(newValue?.size, in: geometry)
+            })
+            .alert("Set Background",
+                   isPresented: $showBackgroundFailureAlert,
+                   presenting: document.background.failureReason,
+                   actions: { reason in
+                Button("OK", role: .cancel){
+                    
+                }
+            },
+                   message: { reason in
+                Text(reason)
+            })
+        }
+    }
+    
+    private func zoomToFit(_ size: CGSize?, in geometry: GeometryProxy) {
+        if let size {
+            zoomToFit(CGRect(center: .zero, size: size), in: geometry)
+        }
+    }
+    
+    private func zoomToFit(_ rect: CGRect, in geometry: GeometryProxy) {
+        withAnimation {
+            if rect.size.width > 0, rect.size.height > 0,
+               geometry.size.width > 0, geometry.size.height > 0 {
+                let hZoom = geometry.size.width / rect.size.width
+                let vZoom = geometry.size.height / rect.size.height
+                zoom = min(hZoom, vZoom)
+                pan = CGOffset(
+                    width: -rect.midX * zoom,
+                    height: -rect.midY * zoom
+                )
             }
         }
     }
@@ -48,12 +92,12 @@ struct EmojiArtDocumentView: View {
     private var zoomGesture: some Gesture {
         // pinching
         MagnificationGesture()
-            // this makes it "show" the zooming
-            // can only modify gestureState during view update
+        // this makes it "show" the zooming
+        // can only modify gestureState during view update
             .updating($gestureZoom) { inMotionPinchScale, gestureZoom, _ in
                 gestureZoom *= inMotionPinchScale
             }
-            // this makes it work
+        // this makes it work
             .onEnded { endingPinchScale in
                 zoom *= endingPinchScale
             }
@@ -62,12 +106,12 @@ struct EmojiArtDocumentView: View {
     private var panGesture: some Gesture {
         // panning
         DragGesture()
-            // this makes it "show" the zooming
-            // can only modify gestureState during view update
+        // this makes it "show" the zooming
+        // can only modify gestureState during view update
             .updating($gesturePan) { value, gesturePan, _ in
                 gesturePan += value.translation
             }
-            // this makes it work
+        // this makes it work
             .onEnded { value in
                 // for +=, see extensions
                 pan += value.translation
@@ -78,19 +122,12 @@ struct EmojiArtDocumentView: View {
     @ViewBuilder
     private func documentContents(in geometry: GeometryProxy) -> some View {
         // image
-        AsyncImage(url: document.background) { phase in
-            if let image = phase.image {
-                image
-            } else if let url = document.background {
-                if phase.error != nil {
-                    Text("\(url)")
-                } else {
-                    ProgressView()
-                }
-            }
+        if let uiImage = document.background.uiImage {
+            Image(uiImage: uiImage)
+            // positioning the image in the 0,0 (center) in the geometry
+                .position(Emoji.Position.zero.in(geometry))
         }
-        // positioning the image in the 0,0 (center) in the geometry
-            .position(Emoji.Position.zero.in(geometry))
+        
         
         // emojis
         ForEach(document.emojis) {emoji in
