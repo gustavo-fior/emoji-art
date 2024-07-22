@@ -6,6 +6,8 @@ struct EmojiArtDocumentView: View {
     
     typealias Emoji = EmojiArt.Emoji
     
+    @StateObject var palleteStore = PaletteStore(named: "Shared")
+    
     @ObservedObject var document : EmojiArtDocument
     
     // scale fonts with @ScaledMetric
@@ -20,7 +22,10 @@ struct EmojiArtDocumentView: View {
                 .scrollIndicators(.hidden)
         }
         // undo button
-        .toolbar()
+        .toolbar {
+            UndoButton()
+        }
+        .environmentObject(palleteStore)
     }
     
     @State private var showBackgroundFailureAlert = false;

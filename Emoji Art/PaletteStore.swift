@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 extension UserDefaults {
     func palettes(forKey key: String) -> [Palette] {
@@ -58,6 +58,21 @@ class PaletteStore: ObservableObject, Identifiable {
         
         if palettes.isEmpty {
             self.palettes = Palette.builtins
+        }
+        
+        // using this old notification API to refresh the palletes
+        // weak self make it be removeable from the heap so that deinit works
+        observer = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] notification in
+            self?.objectWillChange.send()
+        }
+    }
+    
+    @State private var observer: NSObjectProtocol?
+    
+    // opposite of init (when this leaves the heap, only in reference types)
+    deinit {
+        if let observer {
+            NotificationCenter.default.removeObserver(observer)
         }
     }
     
