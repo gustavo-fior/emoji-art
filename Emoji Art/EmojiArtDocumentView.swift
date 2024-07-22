@@ -1,11 +1,15 @@
 import SwiftUI
 
 struct EmojiArtDocumentView: View {
+    // getting the undo mangaer
+    @Environment(\.undoManager) var undoManager
+    
     typealias Emoji = EmojiArt.Emoji
     
     @ObservedObject var document : EmojiArtDocument
     
-    private let paletteEmojiSize: CGFloat = 40
+    // scale fonts with @ScaledMetric
+    @ScaledMetric private var paletteEmojiSize: CGFloat = 40
     
     var body: some View {
         VStack(spacing: 0) {
@@ -15,7 +19,8 @@ struct EmojiArtDocumentView: View {
                 .padding(.horizontal)
                 .scrollIndicators(.hidden)
         }
-        
+        // undo button
+        .toolbar()
     }
     
     @State private var showBackgroundFailureAlert = false;
@@ -144,7 +149,7 @@ struct EmojiArtDocumentView: View {
             switch sturldata {
                 
             case .url(let url):
-                document.setBackground(url)
+                document.setBackground(url, undoManager: undoManager)
                 
                 return true
                 
@@ -152,7 +157,8 @@ struct EmojiArtDocumentView: View {
                 document.addEmoji(
                     emoji,
                     at: emojiPosition(at: location, in: geometry),
-                    size: paletteEmojiSize / zoom
+                    size: paletteEmojiSize / zoom,
+                    undoManager: undoManager
                 )
                 return true
             default:
